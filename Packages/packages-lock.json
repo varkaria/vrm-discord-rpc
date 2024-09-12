@@ -89,12 +89,6 @@
         "com.unity.modules.imgui": "1.0.0"
       }
     },
-    "com.varkaria.vrm-discord-rpc": {
-      "version": "file:com.vrchat.demo-template",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.vrchat.core.bootstrap": {
       "version": "file:com.vrchat.core.bootstrap",
       "depth": 0,
@@ -110,6 +104,12 @@
       "dependencies": {
         "com.unity.nuget.newtonsoft-json": "3.0.2"
       }
+    },
+    "dev.varkaria.discordrpc": {
+      "version": "file:dev.varkaria.discordrpc",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.unity.modules.ai": {
       "version": "1.0.0",
