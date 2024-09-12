@@ -2,7 +2,7 @@
 using System;
 using UnityEngine;
 using UnityEditor.SceneManagement;
-using UnityEditor;
+using UnityEditor; 
 using System.Threading.Tasks;
 using Discord;
 using Debug = UnityEngine.Debug;
@@ -21,6 +21,11 @@ public static class VRMDiscordRPC
     private static string _currentSceneName;
     private static float _lastUpdateTime;
 
+    // Cache variables
+    private static string _cachedSceneName;
+    private static bool _cachedPlayMode;
+    private static string _cachedProductName;
+
     [InitializeOnLoadMethod]
     private static void Initialize()
     {
@@ -28,6 +33,7 @@ public static class VRMDiscordRPC
         {
             _isInitialized = true;
             InitializeAsync();
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
     }
 
@@ -38,16 +44,22 @@ public static class VRMDiscordRPC
         {
             InitializeDiscord();
         }
+        else
+        {
+            Debug.Log("Discord is not running. Rich Presence will not be initialized.");
+        }
     }
 
     private static void InitializeDiscord()
     {
         try 
         {
+            DisposeDiscord(); // Dispose of any existing Discord instance
             _discord = new Discord.Discord(long.Parse(ApplicationId), (long)CreateFlags.Default);
             SetStartTimestamp();
             RegisterCallbacks();
-            UpdateActivity();
+            UpdateActivity(true); // Force initial update
+            Debug.Log("Discord Rich Presence initialized successfully.");
         }
         catch (Exception e)
         {
@@ -57,50 +69,96 @@ public static class VRMDiscordRPC
 
     private static void SetStartTimestamp()
     {
-        TimeSpan elapsedTime = TimeSpan.FromMilliseconds(EditorAnalyticsSessionInfo.elapsedTime);
-        _startTimestamp = DateTimeOffset.Now.Subtract(elapsedTime).ToUnixTimeSeconds();
+        _startTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     }
 
     private static void RegisterCallbacks()
     {
         EditorApplication.update += Update;
-        EditorApplication.playModeStateChanged += OnPlayModeChanged;
-        EditorSceneManager.sceneOpened += OnSceneOpened;
+        EditorSceneManager.activeSceneChangedInEditMode += OnActiveSceneChanged;
     }
 
     private static void Update()
     {
-        _discord?.RunCallbacks();
+        if (_discord == null) return;
 
-        if (Time.realtimeSinceStartup - _lastUpdateTime >= UpdateInterval)
+        try
         {
-            UpdateActivity();
-            _lastUpdateTime = Time.realtimeSinceStartup;
+            _discord.RunCallbacks();
+
+            if (Time.realtimeSinceStartup - _lastUpdateTime >= UpdateInterval)
+            {
+                UpdateActivity();
+                _lastUpdateTime = Time.realtimeSinceStartup;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error in Update: {e}");
+            DisposeDiscord(); // Dispose of the Discord instance if an error occurs
+            InitializeDiscord(); // Attempt to reinitialize
         }
     }
 
-    private static void OnPlayModeChanged(PlayModeStateChange state)
+    private static void OnPlayModeStateChanged(PlayModeStateChange state)
     {
-        _isPlayMode = EditorApplication.isPlaying;
-        UpdateActivity();
+        switch (state)
+        {
+            case PlayModeStateChange.EnteredEditMode:
+                EditorApplication.delayCall += () => {
+                    InitializeDiscord();
+                    UpdateActivity(true);
+                };
+                break;
+            case PlayModeStateChange.ExitingEditMode:
+                DisposeDiscord();
+                break;
+            case PlayModeStateChange.EnteredPlayMode:
+                EditorApplication.delayCall += () => {
+                    InitializeDiscord();
+                    UpdateActivity(true);
+                };
+                break;
+            case PlayModeStateChange.ExitingPlayMode:
+                DisposeDiscord();
+                break;
+        }
     }
 
-    private static void OnSceneOpened(UnityEngine.SceneManagement.Scene scene, OpenSceneMode mode)
+    private static void OnActiveSceneChanged(UnityEngine.SceneManagement.Scene prevScene, UnityEngine.SceneManagement.Scene newScene)
     {
-        UpdateActivity();
+        UpdateActivity(true); // Force update on scene change
     }
 
-    public static void UpdateActivity()
+    public static void UpdateActivity(bool forceUpdate = false)
     {
         if (_discord == null)
         {
+            Debug.LogWarning("Discord is null. Attempting to reinitialize.");
             InitializeDiscord();
             return;
         }
 
         _currentSceneName = EditorSceneManager.GetActiveScene().name;
+        _isPlayMode = EditorApplication.isPlaying;
+
+        // Check if anything has changed
+        if (!forceUpdate &&
+            _currentSceneName == _cachedSceneName &&
+            _isPlayMode == _cachedPlayMode &&
+            Application.productName == _cachedProductName)
+        {
+            return; // No changes, skip update
+        }
+
+        // Update cache
+        _cachedSceneName = _currentSceneName;
+        _cachedPlayMode = _isPlayMode;
+        _cachedProductName = Application.productName;
+
         var activity = CreateActivity();
         _discord.GetActivityManager().UpdateActivity(activity, OnActivityUpdated);
+        Debug.Log($"Updating activity. Scene: {_currentSceneName}, Play Mode: {_isPlayMode}");
     }
 
     private static Activity CreateActivity()
@@ -113,7 +171,7 @@ public static class VRMDiscordRPC
             Assets = {
                 LargeImage = "logo",
                 LargeText = $"Unity {Application.unityVersion}",
-                SmallImage = _isPlayMode ? "play-mode-v2" : "edit-mode-v2",
+                SmallImage = _isPlayMode ? "play-mode" : "edit-mode",
                 SmallText = _isPlayMode ? "Play mode" : "Edit mode",
             },
         };
@@ -121,7 +179,11 @@ public static class VRMDiscordRPC
 
     private static void OnActivityUpdated(Result result)
     {
-        if (result != Result.Ok)
+        if (result == Result.Ok)
+        {
+            Debug.Log("Discord activity updated successfully.");
+        }
+        else
         {
             Debug.LogError($"Failed to update Discord activity: {result}");
         }
@@ -139,5 +201,24 @@ public static class VRMDiscordRPC
         }
         return false;
     }
+
+    private static void DisposeDiscord()
+    {
+        if (_discord != null)
+        {
+            try
+            {
+                _discord.Dispose();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error disposing Discord: {e}");
+            }
+            finally
+            {
+                _discord = null;
+            }
+        }
+    }
 }
-#endif
+#endif 
