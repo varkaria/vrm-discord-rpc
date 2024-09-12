@@ -12,7 +12,7 @@ public static class VRMDiscordRPC
 {
     private const string ApplicationId = "1283700247440134174";
     private const int InitializationDelay = 1000; // milliseconds
-    private const float UpdateInterval = 5f; // seconds
+    private const float UpdateInterval = 15f; // seconds, increased from 5f
     
     private static Discord.Discord _discord;
     private static long _startTimestamp;
@@ -34,6 +34,8 @@ public static class VRMDiscordRPC
             _isInitialized = true;
             InitializeAsync();
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            EditorApplication.quitting += DisposeDiscord;
+            CheckDiscordStatus();
         }
     }
 
@@ -105,20 +107,13 @@ public static class VRMDiscordRPC
         switch (state)
         {
             case PlayModeStateChange.EnteredEditMode:
-                EditorApplication.delayCall += () => {
-                    InitializeDiscord();
-                    UpdateActivity(true);
-                };
-                break;
-            case PlayModeStateChange.ExitingEditMode:
-                DisposeDiscord();
-                break;
             case PlayModeStateChange.EnteredPlayMode:
                 EditorApplication.delayCall += () => {
                     InitializeDiscord();
                     UpdateActivity(true);
                 };
                 break;
+            case PlayModeStateChange.ExitingEditMode:
             case PlayModeStateChange.ExitingPlayMode:
                 DisposeDiscord();
                 break;
@@ -157,8 +152,17 @@ public static class VRMDiscordRPC
         _cachedProductName = Application.productName;
 
         var activity = CreateActivity();
-        _discord.GetActivityManager().UpdateActivity(activity, OnActivityUpdated);
-        Debug.Log($"Updating activity. Scene: {_currentSceneName}, Play Mode: {_isPlayMode}");
+        try
+        {
+            _discord.GetActivityManager().UpdateActivity(activity, OnActivityUpdated);
+            Debug.Log($"Updating activity. Scene: {_currentSceneName}, Play Mode: {_isPlayMode}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error updating Discord activity: {e}");
+            // Attempt to reinitialize Discord on error
+            InitializeDiscord();
+        }
     }
 
     private static Activity CreateActivity()
@@ -185,7 +189,14 @@ public static class VRMDiscordRPC
         }
         else
         {
-            Debug.LogError($"Failed to update Discord activity: {result}");
+            Debug.LogWarning($"Failed to update Discord activity: {result}");
+            if (result == Result.TransactionAborted)
+            {
+                Debug.Log("Transaction aborted. This might be due to rate limiting or Discord client issues. Retrying in 30 seconds...");
+                EditorApplication.delayCall += () => {
+                    Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(_ => UpdateActivity(true));
+                };
+            }
         }
     }
 
@@ -220,5 +231,18 @@ public static class VRMDiscordRPC
             }
         }
     }
+
+    private static async void CheckDiscordStatus()
+    {
+        while (true)
+        {
+            await Task.Delay(TimeSpan.FromMinutes(5));
+            if (!IsDiscordRunning() && _discord != null)
+            {
+                Debug.Log("Discord client not detected. Reinitializing...");
+                InitializeDiscord();
+            }
+        }
+    }
 }
-#endif 
+#endif
