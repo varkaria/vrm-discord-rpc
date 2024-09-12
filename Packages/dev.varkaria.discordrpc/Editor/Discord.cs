@@ -12,11 +12,14 @@ public static class VRMDiscordRPC
 {
     private const string ApplicationId = "1283700247440134174";
     private const int InitializationDelay = 1000; // milliseconds
+    private const float UpdateInterval = 5f; // seconds
     
     private static Discord.Discord _discord;
     private static long _startTimestamp;
     private static bool _isPlayMode;
     private static bool _isInitialized = false;
+    private static string _currentSceneName;
+    private static float _lastUpdateTime;
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -62,20 +65,29 @@ public static class VRMDiscordRPC
     {
         EditorApplication.update += Update;
         EditorApplication.playModeStateChanged += OnPlayModeChanged;
+        EditorSceneManager.sceneOpened += OnSceneOpened;
     }
 
     private static void Update()
     {
         _discord?.RunCallbacks();
+
+        if (Time.realtimeSinceStartup - _lastUpdateTime >= UpdateInterval)
+        {
+            UpdateActivity();
+            _lastUpdateTime = Time.realtimeSinceStartup;
+        }
     }
 
     private static void OnPlayModeChanged(PlayModeStateChange state)
     {
-        if (EditorApplication.isPlaying != _isPlayMode)
-        {
-            _isPlayMode = EditorApplication.isPlaying;
-            UpdateActivity();
-        }
+        _isPlayMode = EditorApplication.isPlaying;
+        UpdateActivity();
+    }
+
+    private static void OnSceneOpened(UnityEngine.SceneManagement.Scene scene, OpenSceneMode mode)
+    {
+        UpdateActivity();
     }
 
     public static void UpdateActivity()
@@ -86,6 +98,7 @@ public static class VRMDiscordRPC
             return;
         }
 
+        _currentSceneName = EditorSceneManager.GetActiveScene().name;
         var activity = CreateActivity();
         _discord.GetActivityManager().UpdateActivity(activity, OnActivityUpdated);
     }
@@ -94,13 +107,13 @@ public static class VRMDiscordRPC
     {
         return new Activity
         {
-            State = $"{EditorSceneManager.GetActiveScene().name} scene",
+            State = $"{_currentSceneName} scene",
             Details = Application.productName,
             Timestamps = { Start = _startTimestamp },
             Assets = {
                 LargeImage = "logo",
                 LargeText = $"Unity {Application.unityVersion}",
-                SmallImage = _isPlayMode ? "play-mode" : "edit-mode",
+                SmallImage = _isPlayMode ? "play-mode-v2" : "edit-mode-v2",
                 SmallText = _isPlayMode ? "Play mode" : "Edit mode",
             },
         };
