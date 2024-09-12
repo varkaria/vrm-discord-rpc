@@ -10,7 +10,7 @@ using System.Diagnostics;
 
 public static class VRMDiscordRPC
 {
-    private const string ApplicationId = "846826015904497714";
+    private const string ApplicationId = "1283700247440134174";
     private const int InitializationDelay = 1000; // milliseconds
     
     private static Discord.Discord _discord;
@@ -98,7 +98,7 @@ public static class VRMDiscordRPC
             Details = Application.productName,
             Timestamps = { Start = _startTimestamp },
             Assets = {
-                LargeImage = "unity-icon",
+                LargeImage = "logo",
                 LargeText = $"Unity {Application.unityVersion}",
                 SmallImage = _isPlayMode ? "play-mode" : "edit-mode",
                 SmallText = _isPlayMode ? "Play mode" : "Edit mode",
