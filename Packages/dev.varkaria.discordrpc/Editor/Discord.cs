@@ -8,7 +8,6 @@ using Discord;
 using Debug = UnityEngine.Debug;
 using System.Diagnostics;
 
-[InitializeOnLoad]
 public static class VRMDiscordRPC
 {
     private const string ApplicationId = "846826015904497714";
@@ -17,10 +16,16 @@ public static class VRMDiscordRPC
     private static Discord.Discord _discord;
     private static long _startTimestamp;
     private static bool _isPlayMode;
+    private static bool _isInitialized = false;
 
-    static VRMDiscordRPC()
+    [InitializeOnLoadMethod]
+    private static void Initialize()
     {
-        InitializeAsync();
+        if (!_isInitialized)
+        {
+            _isInitialized = true;
+            InitializeAsync();
+        }
     }
 
     private static async void InitializeAsync()
@@ -50,7 +55,7 @@ public static class VRMDiscordRPC
     private static void SetStartTimestamp()
     {
         TimeSpan elapsedTime = TimeSpan.FromMilliseconds(EditorAnalyticsSessionInfo.elapsedTime);
-        _startTimestamp = DateTimeOffset.Now.Add(elapsedTime).ToUnixTimeSeconds();
+        _startTimestamp = DateTimeOffset.Now.Subtract(elapsedTime).ToUnixTimeSeconds();
     }
 
     private static void RegisterCallbacks()
