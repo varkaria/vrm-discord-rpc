@@ -1,0 +1,91 @@
+{
+  "name": "Varkaria Packages",
+  "id": "dev.varkaria.discordrpc.listing",
+  "url": "https://vpm.varkaria.works/index.json",
+  "author": {
+    "name": "Varkaria",
+    "url": "https://varkaria.works"
+  },
+  "description": "Unity tools by Varkaria. Add this listing to VRChat Creator Companion to install and update packages.",
+  "packages": {
+    "dev.varkaria.discordrpc": {
+      "versions": {
+        "0.0.5": {
+          "name": "dev.varkaria.discordrpc",
+          "displayName": "VRMDiscordRPC",
+          "version": "0.0.5",
+          "unity": "2019.4",
+          "description": "a discord activity for unity (vrchat creator companion)",
+          "author": {
+            "name": "Varkaria",
+            "email": "v@ri.mk",
+            "url": "https://varkaria.works"
+          },
+          "vrchatVersion": "2022.1.1",
+          "zipSHA256": "444d8b851bdbe00f027d766a14d8cd1aaa80dffa483777c3169ae5bdaf238ca2",
+          "url": "https://github.com/varkaria/vrm-discord-rpc/releases/download/0.0.5/dev.varkaria.discordrpc-0.0.5.zip"
+        },
+        "0.0.4": {
+          "name": "dev.varkaria.discordrpc",
+          "displayName": "VRMDiscordRPC",
+          "version": "0.0.4",
+          "unity": "2019.4",
+          "description": "a discord activity for unity (vrchat creator companion)",
+          "author": {
+            "name": "Varkaria",
+            "email": "v@ri.mk",
+            "url": "https://varkaria.works"
+          },
+          "vrchatVersion": "2022.1.1",
+          "zipSHA256": "421015cb1565ede884757066c191ed67909345ac78c2c0bd75ddbc8359bf3b52",
+          "url": "https://github.com/varkaria/vrm-discord-rpc/releases/download/0.0.4/dev.varkaria.discordrpc-0.0.4.zip"
+        },
+        "0.0.3": {
+          "name": "dev.varkaria.discordrpc",
+          "displayName": "VRMDiscordRPC",
+          "version": "0.0.3",
+          "unity": "2019.4",
+          "description": "a discord activity for unity (vrchat creator companion)",
+          "author": {
+            "name": "Varkaria",
+            "email": "v@ri.mk",
+            "url": "https://varkaria.works"
+          },
+          "vrchatVersion": "2022.1.1",
+          "zipSHA256": "91450867be2750b18b588bb761c9d95d3b7670135f720986e09c8a40fe2942d6",
+          "url": "https://github.com/varkaria/vrm-discord-rpc/releases/download/0.0.3/dev.varkaria.discordrpc-0.0.3.zip"
+        },
+        "0.0.2": {
+          "name": "dev.varkaria.discordrpc",
+          "displayName": "VRMDiscordRPC",
+          "version": "0.0.2",
+          "unity": "2019.4",
+          "description": "a discord activity for unity (vrchat creator companion)",
+          "author": {
+            "name": "Varkaria",
+            "email": "v@ri.mk",
+            "url": "https://varkaria.works"
+          },
+          "vrchatVersion": "2022.1.1",
+          "zipSHA256": "75b6b33e361d89de19860e5efcdf5ee9f35453811e510f3f4c85a71db7a0891d",
+          "url": "https://github.com/varkaria/vrm-discord-rpc/releases/download/0.0.2/dev.varkaria.discordrpc-0.0.2.zip"
+        },
+        "0.0.1": {
+          "name": "dev.varkaria.discordrpc",
+          "displayName": "VRMDiscordRPC",
+          "version": "0.0.1",
+          "unity": "2019.4",
+          "description": "a discord activity for unity (vrchat creator companion)",
+          "author": {
+            "name": "Varkaria",
+            "email": "v@ri.mk",
+            "url": "https://varkaria.works"
+          },
+          "vrchatVersion": "2022.1.1",
+          "zipSHA256": "5e2b9954e9bda1981d87663d1a9a84bb129743bc7b7cb7bfd6be160f26296a31",
+          "url": "https://github.com/varkaria/vrm-discord-rpc/releases/download/0.0.1/dev.varkaria.discordrpc-0.0.1.zip"
+        }
+      }
+    }
+  }
+}

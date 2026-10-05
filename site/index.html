@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Unity tools by Varkaria. Install and update through VRChat Creator Companion.">
+  <meta name="color-scheme" content="dark light">
+  <title>Varkaria Packages</title>
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="./"><span class="mark" aria-hidden="true">V</span> Varkaria<span class="subbrand"> / packages</span></a><a href="https://github.com/varkaria/vrm-discord-rpc">GitHub <span aria-hidden="true">↗</span></a></header>
+  <main>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">MADE FOR YOUR UNITY WORKSPACE</p>
+      <h1 id="title">A few useful tools.<br><span>More room to create.</span></h1>
+      <p class="lead">Unity packages by Varkaria, ready to install and update with VRChat Creator Companion.</p>
+      <div class="actions"><a class="primary" id="add-repository" href="vcc://vpm/addRepo?url=https%3A%2F%2Fvpm.varkaria.works%2Findex.json">Add to Creator Companion <span aria-hidden="true">↗</span></a><button id="copy-repository" type="button">Copy repository URL</button></div>
+      <p class="hint">Already subscribed? Your existing repository keeps working.</p>
+      <p id="copy-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+    <section aria-labelledby="packages-heading" class="catalog">
+      <div class="catalog-heading"><h2 id="packages-heading">Packages <span id="count"></span></h2><label class="search"><span class="sr-only">Search packages</span><input id="search" type="search" placeholder="Search packages…" autocomplete="off"></label></div>
+      <p id="load-status" role="status">Loading packages…</p>
+      <div id="packages" class="packages"></div>
+    </section>
+    <aside class="manual"><div><h2>Prefer to add it manually?</h2><p>In Creator Companion, open <strong>Settings → Packages → Add Repository</strong> and paste this URL.</p></div><a id="repository-url" href="index.json">https://vpm.varkaria.works/index.json</a></aside>
+  </main>
+  <footer><span>Varkaria · Unity tools</span><a href="https://github.com/varkaria/vrm-discord-rpc/issues">Report an issue ↗</a></footer>
+</body>
+</html>

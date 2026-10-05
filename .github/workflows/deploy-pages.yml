@@ -1,0 +1,58 @@
+name: Deploy public package listing
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/deploy-pages.yml']
+  pull_request:
+    paths: ['site/**', '.github/workflows/deploy-pages.yml']
+permissions:
+  contents: read
+concurrency:
+  group: public-pages-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Check public listing
+        run: |
+          python - <<'PY'
+          import json, pathlib, re
+          site = pathlib.Path('site')
+          data = json.loads((site / 'index.json').read_text())
+          assert data['id'] == 'dev.varkaria.discordrpc.listing'
+          assert data['url'] == 'https://vpm.varkaria.works/index.json'
+          assert set(data['packages']) == {'dev.varkaria.discordrpc'}
+          versions = data['packages']['dev.varkaria.discordrpc']['versions']
+          assert {'0.0.1','0.0.2','0.0.3','0.0.4','0.0.5'} <= set(versions)
+          for version, package in versions.items():
+              assert package['version'] == version
+              assert re.fullmatch('[0-9a-f]{64}', package['zipSHA256'])
+              assert package['url'].startswith('https://github.com/varkaria/vrm-discord-rpc/releases/download/')
+          assert {p.name for p in site.iterdir()} == {'index.html','index.json','app.js','styles.css','favicon.ico','CNAME','.nojekyll'}
+          assert (site / 'CNAME').read_text().strip() == 'vpm.varkaria.works'
+          PY
+      - run: node --check site/app.js
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: github.event_name != 'pull_request'
+        with:
+          path: site
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        id: deployment
