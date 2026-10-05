@@ -1,13 +1,17 @@
 {
   "name": "dev.varkaria.discordrpc",
   "displayName": "VRMDiscordRPC",
-  "version": "0.0.5",
-  "unity": "2019.4",
-  "description": "a discord activity for unity (vrchat creator companion)",
-  "vrchatVersion": "2022.1.1",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "description": "Discord Rich Presence for the Unity Editor, with reconnects and project/scene privacy controls.",
   "author": {
     "name": "Varkaria",
     "email": "v@ri.mk",
     "url": "https://varkaria.works"
+  },
+  "documentationUrl": "https://github.com/varkaria/vrm-discord-rpc#readme",
+  "changelogUrl": "https://github.com/varkaria/vrm-discord-rpc/blob/main/CHANGELOG.md",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
   }
 }

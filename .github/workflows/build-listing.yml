@@ -1,78 +1,45 @@
 name: Build Repo Listing
-
-env:
-  listPublishDirectory: Website
-  pathToCi: ci
-  
-on: 
+on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['source.json', 'listing/**', 'Website/**', 'tools/listing.py', '.github/workflows/build-listing.yml']
+  release:
+    types: [published, edited, deleted]
   workflow_run:
     workflows: [Build Release]
-    types:
-      - completed
-  release:
-     types: [published, created, edited, unpublished, deleted, released]
-
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+    types: [completed]
 permissions:
   contents: read
-  pages: write
-  id-token: write
-  
-# Allow one concurrent deployment
 concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
+  group: pages
+  cancel-in-progress: false
 jobs:
-  
-  # Build the VPM Listing Website and deploy to GitHub Pages
-  build-listing:
-    name: build-listing
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tools -p 'test_listing.py' -v
+      - run: python tools/listing.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: .site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      
-      # Checkout Local Repository
-      - name: Checkout Local Repository
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-
-      # Checkout Automation Repository without removing prior checkouts
-      - name: Checkout Automation Repository
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-        with:
-          repository: vrchat-community/package-list-action
-          path: ${{ env.pathToCi }}
-          clean: false
-
-      # Load cached data from previous runs
-      - name: Restore Cache
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84
-        with:
-          path: |
-            ${{ env.pathToCi }}/.nuke/temp
-            ~/.nuget/packages
-          key: ${{ runner.os }}-${{ hashFiles('**/global.json', '**/*.csproj') }}
-      
-      # Build Package Version Listing with Nuke
-      - name: Build Package Version Listing
-        run: ${{ env.pathToCi }}/build.cmd BuildRepoListing --root ${{ env.pathToCi }} --list-publish-directory $GITHUB_WORKSPACE/${{ env.listPublishDirectory }} --current-package-name ${{ vars.PACKAGE_NAME }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Prepare for GitHub Pages deployment
-      - name: Setup Pages
-        uses: actions/configure-pages@f156874f8191504dae5b037505266ed5dda6c382
-      
-      # Upload the VPM Listing Website to GitHub Pages artifacts
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@a753861a5debcf57bf8b404356158c8e1e33150c
-        with:
-          path: ${{ env.listPublishDirectory }}
-      
-      # Deploy the uploaded VPM Listing Website to GitHub Pages
-      - name: Deploy to GitHub Pages
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         id: deployment
-        uses: actions/deploy-pages@9dbe3824824f8a1377b8e298bafde1a50ede43e5

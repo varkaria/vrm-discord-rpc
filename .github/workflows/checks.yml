@@ -1,17 +1,13 @@
-name: Build Release
+name: Checks
 on:
-  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
 permissions:
   contents: read
-concurrency:
-  group: release
-  cancel-in-progress: false
 jobs:
-  release:
-    if: github.ref == 'refs/heads/main'
+  checks:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -22,13 +18,10 @@ jobs:
           dotnet-version: '10.0.401'
       - run: sudo apt-get update && sudo apt-get install -y mono-runtime
       - run: dotnet build tools/Broker/Broker.csproj -c Release -o Logs/Broker
-      - run: cmp Logs/Broker/VrmPresence.exe Packages/dev.varkaria.discordrpc/Editor/Broker~/VrmPresence.exe
+      - name: Verify shipped helper matches source
+        run: cmp Logs/Broker/VrmPresence.exe Packages/dev.varkaria.discordrpc/Editor/Broker~/VrmPresence.exe
       - run: dotnet build tools/Broker/Broker.csproj -c Release -p:BrokerTest=true -o Logs/BrokerTest
       - run: python -m unittest discover -s tools -p 'test_*.py' -v
+      - run: python tools/listing.py --offline
       - run: python tools/package.py Packages/dev.varkaria.discordrpc
-      - name: Publish immutable release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(python -c 'import json; print(json.load(open("Packages/dev.varkaria.discordrpc/package.json"))["version"])')
-          gh release create "$version" dist/*.zip dist/*.sha256 Packages/dev.varkaria.discordrpc/package.json --target "$GITHUB_SHA" --title "VRMDiscordRPC $version" --notes-file RELEASE-NOTES.md
+      - run: node --check Website/app.js

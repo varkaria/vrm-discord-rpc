@@ -1,0 +1,10 @@
+{
+  "name": "Varkaria Packages",
+  "id": "dev.varkaria.discordrpc.listing",
+  "url": "https://vpm.varkaria.works/index.json",
+  "author": { "name": "Varkaria", "url": "https://varkaria.works" },
+  "description": "Unity tools by Varkaria. Add this listing to VRChat Creator Companion to install and update packages.",
+  "infoLink": { "url": "https://github.com/varkaria/vrm-discord-rpc", "text": "Source and releases" },
+  "githubRepos": ["varkaria/vrm-discord-rpc"],
+  "packages": []
+}

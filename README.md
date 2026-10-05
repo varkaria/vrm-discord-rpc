@@ -1,76 +1,70 @@
-# VPM Package Template
+# VRMDiscordRPC · Varkaria Packages
 
-Starter for making Packages, including automation for building and publishing them.
+Discord Rich Presence for the Unity Editor, distributed through [vpm.varkaria.works](https://vpm.varkaria.works). This repository also hosts the Varkaria VPM package listing.
 
-Once you're all set up, you'll be able to push changes to this repository and have .zip and .unitypackage versions automatically generated, and a listing made which works in the VPM for delivering updates for this package. If you want to make a listing with a variety of packages, check out our [template-package-listing](https://github.com/vrchat-community/template-package-listing) repo.
+## Install or update
 
-## ▶ Getting Started
+In VRChat Creator Companion, open **Settings → Packages → Add Repository** and paste:
 
-* Press [![Use This Template](https://user-images.githubusercontent.com/737888/185467681-e5fdb099-d99f-454b-8d9e-0760e5a6e588.png)](https://github.com/vrchat-community/template-package/generate)
-to start a new GitHub project based on this template.
-  * Choose a fitting repository name and description.
-  * Set the visibility to 'Public'. You can also choose 'Private' and change it later.
-  * You don't need to select 'Include all branches.'
-* Clone this repository locally using Git.
-  * If you're unfamiliar with Git and GitHub, [visit GitHub's documentation](https://docs.github.com/en/get-started/quickstart/git-and-github-learning-resources) to learn more.
-* Add the folder to Unity Hub and open it as a Unity Project.
-* After opening the project, wait while the VPM resolver is downloaded and added to your project.
-  * This gives you access to the VPM Package Maker and Package Resolver tools.
+```text
+https://vpm.varkaria.works/index.json
+```
 
-## 🚇 Migrating Assets Package
-Full details at [Converting Assets to a VPM Package](https://vcc.docs.vrchat.com/guides/convert-unitypackage)
+Enable the listing and add **VRMDiscordRPC** to your project. Existing subscribers can keep their repository: the listing ID and all published 0.0.x versions are preserved. Version 0.1.0 requires **Unity 2022.3**, tested with VRChat's 2022.3.22f1. New releases ship a VPM ZIP; legacy `.unitypackage` downloads remain available in historical releases.
 
-## ✏️ Working on Your Package
+After upgrading from 0.0.x, restart Unity once to unload its old native SDK and any leaked connections. If you previously imported an Assets copy manually, remove that old copy before installing the VPM package, so two implementations do not run together.
 
-* Delete the "Packages/com.vrchat.demo-template" directory or reuse it for your own package.
-  * If you reuse the package, don't forget to rename it!
-* Update the `.gitignore` file in the "Packages" directory to include your package.
-  * For example, change `!com.vrchat.demo-template` to `!com.username.package-name`.
-  * `.gitignore` files normally *exclude* the contents of your "Packages" directory. This `.gitignore` in this template show how to *include* the demo package. You can easily change this out for your own package name.
-* Open the Unity project and work on your package's files in your favorite code editor.
-* When you're ready, commit and push your changes.
-* Once you've set up the automation as described below, you can easily publish new versions.
+Presence starts automatically in an interactive editor. **Edit → Preferences → VRM Discord RPC** controls enablement, project/scene name sharing, and the application ID. Batch builds and test runners never automatically connect to Discord. The package is editor-only and is not included in uploaded avatars or game builds.
 
-## 🤖 Setting up the Automation
+## Reload and Play Mode behavior
 
-Create a repository variable with the name and value described below.
-For details on how to create repository variables, see [Creating Configuration Variables for a Repository](https://docs.github.com/en/actions/learn-github-actions/variables#creating-configuration-variables-for-a-repository).
-Make sure you are creating a **repository variable**, and not a **repository secret**.
+Unity reloads its scripting domain during compilation and most Play Mode transitions. Static C# objects cannot keep a connection across that boundary. Saving a timestamp alone preserves elapsed time but still reconnects the SDK.
 
-* `PACKAGE_NAME`: the name of your package, like `com.vrchat.demo-template`.
+Version 0.1.0 moves the connection into a small managed helper launched with Unity's bundled Mono runtime. It requires no separate runtime installation. Unity sends atomic local JSON snapshots under `Library/VRMDiscordRPC`; the helper owns the Discord pipe and runs no Unity APIs.
 
-Finally, go to the "Settings" page for your repo, then choose "Pages", and look for the heading "Build and deployment". Change the "Source" dropdown from "Deploy from a branch" to "GitHub Actions".
+- One exclusive file lock per Unity process prevents competing helpers from opening duplicate connections.
+- The same helper PID and connection survive recompilation, scene changes, Play Mode, and domain reload. The start timestamp lives in `SessionState`, with the helper retaining the first received value.
+- Discord restart uses the SDK's reconnect loop. If the helper crashes, Unity starts a replacement with the original timestamp, after verifying the old PID and its creation time are gone.
+- Disabling presence sends a stop request. Closing or crashing Unity is detected by its PID **and start time**, preventing PID reuse from keeping an orphan alive. Removing the package also stops the helper.
+- The helper sends a null activity and waits for its transport worker on shutdown. A stuck worker terminates the helper before any replacement connection is allowed.
+- Unchanged activity is not resent. Changes are coalesced at a 15-second minimum interval. Privacy changes may therefore take up to 15 seconds to reach Discord.
 
-That's it!
-Some other notes:
-* We highly recommend you keep the existing folder structure of this template.
-  * The root of the project should be a Unity project.
-  * Your packages should be in the "Packages" directory.
-  * If you deviate from this folder structure, you'll need to update the paths that assume your package is in the "Packages" directory on lines 24, 38, 41 and 57.
-* If you want to store and generate your web files in a folder other than "Website" in the root, you can change the `listPublicDirectory` item [here in build-listing.yml](.github/workflows/build-listing.yml#L17).
+This removes reload-driven disconnects and competing connections. Discord controls its profile UI and activity history; it may briefly retain stale activity after a client or helper crash. Multiple Unity editor processes each have their own presence session. Windows is verified locally; Linux helper lifecycle tests run in CI. macOS and live Discord UI behavior still need verification.
 
-## 🎉 Publishing a Release
+## Build and test
 
-You can make a release by running the [Build Release](.github/workflows/release.yml) action. The version specified in your `package.json` file will be used to define the version of the release.
+The helper source is in `tools/Broker`; shared snapshot, protocol, and scheduling code is in the package. The shipped executable under `Editor/Broker~` is ignored by Unity's assembly importer. Build with .NET SDK **10.0.401**:
 
-## 📃 Rebuilding the Listing
+```sh
+dotnet build tools/Broker/Broker.csproj -c Release -o Logs/Broker
+# Copy Logs/Broker/VrmPresence.exe to Packages/dev.varkaria.discordrpc/Editor/Broker~/
+dotnet build tools/Broker/Broker.csproj -c Release -p:BrokerTest=true -o Logs/BrokerTest
+python -m unittest discover -s tools -p 'test_*.py' -v
+```
 
-Whenever you make a change to a release - manually publishing it, or manually creating, editing or deleting a release, the [Build Repo Listing](.github/workflows/build-listing.yml) action will make a new index of all the releases available, and publish them as a website hosted fore free on [GitHub Pages](https://pages.github.com/). This listing can be used by the VPM to keep your package up to date, and the generated index page can serve as a simple landing page with info for your package. The URL for your package will be in the format `https://username.github.io/repo-name`.
+Set `MONO` to Unity's `Editor/Data/MonoBleedingEdge/bin/mono.exe` on Windows, or install Mono for command-line tests. The recording helper is a separate test build; it cannot broadcast to a Discord account. CI compares the production executable against a fresh deterministic build.
 
-## 🏠 Customizing the Landing Page (Optional)
+Open this project in Unity 2022.3.22f1 and run the Edit Mode tests after building the recording helper. Tests cover the send scheduler, reconnect handling, Unicode limits, privacy, actual Play Mode transitions, script reload, unchanged helper identity, competing launches, parent crashes, and helper recovery. For batch execution, use absolute paths for `-testResults` and `-logFile`.
 
-The action which rebuilds the listing also publishes a landing page. The source for this page is in `Website/index.html`. The automation system uses [Scriban](https://github.com/scriban/scriban) to fill in the objects like `{{ this }}` with information from the latest release's manifest, so it will stay up-to-date with the name, id and description that you provide there. You are welcome to modify this page however you want - just use the existing `{{ template.objects }}` to fill in that info wherever you like. The entire contents of your "Website" folder are published to your GitHub Page each time.
+## Listing and releases
 
-## 💻 Technical Stuff
+`source.json` follows the [official listing template](https://github.com/vrchat-community/template-package-listing): `githubRepos` discovers public stable release ZIPs, and `packages` adds explicit package URLs. The local Python builder retains history, validates package identity, hashes archive bytes, rejects changed versions, and never forwards GitHub API credentials to download hosts. It fails on source errors rather than deploying an incomplete listing. The website uses local assets and escaped DOM text, with no CDN or template runtime.
 
-You are welcome to make your own changes to the automation process to make it fit your needs, and you can create Pull Requests if you have some changes you think we should adopt. Here's some more info on the included automation:
+```sh
+python tools/listing.py --offline  # Historical listing and website preview in .site
+python tools/listing.py            # Fetch and verify all public releases
+python tools/package.py Packages/dev.varkaria.discordrpc
+python -m http.server 8080 --directory .site
+```
 
-### Build Release Action
-[release.yml](/.github/workflows/release.yml)
+Merge reviewed changes into `main`, then run **Build Release** manually. It verifies the helper, runs Python integration tests, creates a deterministic VPM ZIP and checksum, and publishes an immutable version tag. Bump `package.json` and update `RELEASE-NOTES.md` first; rerunning an existing release fails instead of overwriting its files. Run Unity tests before release; the GitHub jobs do not have a Unity license. A successful release rebuilds the Pages listing. Website/source changes also deploy on main; pull requests only run checks.
 
-This is a composite action combining a variety of existing GitHub Actions and some shell commands to create both a .zip of your Package and a .unitypackage. It creates a release which is named for the `version` in the `package.json` file found in your target Package, and publishes the zip, the unitypackage and the package.json file to this release.
+`listing/history.json` is the preserved public listing from 2026-10-06. Keep it when adding packages. Package/version removal requires an intentional history edit; removing a release alone does not erase the record.
 
-### Build Repo Listing
-[build-listing.yml](.github/workflows/build-listing.yml)
+### Vixen Plus: prepared only
 
-This is a composite action which builds a vpm-compatible [Repo Listing](https://vcc.docs.vrchat.com/vpm/repos) based on the releases you've created. In order to find all your releases and combine them into a listing, it checks out [another repository](https://github.com/vrchat-community/package-list-action) which has a [Nuke](https://nuke.build/) project which includes the VPM core lib to have access to its types and methods. This project will be expanded to include more functionality in the future - for now, the action just calls its `BuildRepoListing` target.
+`listing/vixen-plus.pending.json` contains the three proposed 1.5.0 package entries. It is **not consumed by the builder**. The repository remains private and no Vixen ZIP is published. After separately approving distribution and publishing the corresponding public release files, copy the three entries into `source.json`'s `packages` list. Original package IDs and GUIDs must be preserved for existing avatars. Users also need the VRChat, Hai, and nadena dependency listings.
+
+## Dependencies and attribution
+
+See [dependency review](Documentation/Dependency-Review.md), [third-party notices](Packages/dev.varkaria.discordrpc/Third-Party-Notices.md), and [changelog](CHANGELOG.md). Package ID `dev.varkaria.discordrpc`, original script GUID, assembly name, Discord application ID, and image keys remain compatible.

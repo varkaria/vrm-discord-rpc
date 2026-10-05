@@ -1,0 +1,19 @@
+{
+  "name": "VRMDiscordRPC.Editor.Tests",
+  "references": [
+    "VRMDiscordRPC.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll",
+    "DiscordRPC.dll",
+    "Newtonsoft.Json.dll"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

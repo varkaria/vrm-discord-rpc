@@ -1,0 +1,8 @@
+{
+  "status": "Prepared only. Do not merge into source.json until public distribution is approved and these releases exist.",
+  "packages": [
+    { "name": "dev.hai-vr.resilience.vixen", "releases": ["https://github.com/varkaria/vixen-plus/releases/download/1.5.0/dev.hai-vr.resilience.vixen-1.5.0.zip"] },
+    { "name": "dev.hai-vr.resilience.vixen.vrc", "releases": ["https://github.com/varkaria/vixen-plus/releases/download/1.5.0/dev.hai-vr.resilience.vixen.vrc-1.5.0.zip"] },
+    { "name": "dev.hai-vr.resilience.vixen.ndmf", "releases": ["https://github.com/varkaria/vixen-plus/releases/download/1.5.0/dev.hai-vr.resilience.vixen.ndmf-1.5.0.zip"] }
+  ]
+}

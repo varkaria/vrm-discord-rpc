@@ -62,3 +62,11 @@ crashlytics-build.properties
 Assets/PackageMakerWindowData.asset*
 .idea
 .vscode
+
+!tools/**/*.csproj
+/tools/**/bin/
+/tools/**/obj/
+/dist/
+/.site/
+
+__pycache__/

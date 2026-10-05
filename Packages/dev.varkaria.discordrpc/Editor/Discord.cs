@@ -1,248 +1,73 @@
-﻿#if UNITY_EDITOR
 using System;
-using UnityEngine;
+using System.Globalization;
+using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEditor; 
-using System.Threading.Tasks;
-using Discord;
-using Debug = UnityEngine.Debug;
-using System.Diagnostics;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using Varkaria.DiscordPresence;
 
+// Preserve the entry point used by existing editor integrations.
+[InitializeOnLoad]
 public static class VRMDiscordRPC
 {
-    private const string ApplicationId = "1283700247440134174";
-    private const int InitializationDelay = 1000; // milliseconds
-    private const float UpdateInterval = 15f; // seconds, increased from 5f
-    
-    private static Discord.Discord _discord;
-    private static long _startTimestamp;
-    private static bool _isPlayMode;
-    private static bool _isInitialized = false;
-    private static string _currentSceneName;
-    private static float _lastUpdateTime;
-
-    // Cache variables
-    private static string _cachedSceneName;
-    private static bool _cachedPlayMode;
-    private static string _cachedProductName;
-
-    [InitializeOnLoadMethod]
-    private static void Initialize()
+    private const string TimestampKey = "VRMDiscordRPC.SessionStart";
+    private static BrokerClient _client;
+    private static DateTime _sessionStart;
+    private static double _nextUpdate;
+    private static string _error;
+    public static string Status => Application.isBatchMode ? "Disabled in batch mode" : _error ?? _client?.Status ?? "Disabled";
+    static VRMDiscordRPC()
     {
-        if (!_isInitialized)
+        if (Application.isBatchMode) return;
+        if (!DateTime.TryParse(SessionState.GetString(TimestampKey, ""), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _sessionStart))
         {
-            _isInitialized = true;
-            InitializeAsync();
-            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-            EditorApplication.quitting += DisposeDiscord;
-            CheckDiscordStatus();
+            _sessionStart = DateTime.UtcNow;
+            SessionState.SetString(TimestampKey, _sessionStart.ToString("O", CultureInfo.InvariantCulture));
         }
+        EditorApplication.update += Tick;
+        EditorApplication.playModeStateChanged += PlayModeChanged;
+        EditorSceneManager.activeSceneChangedInEditMode += SceneChanged;
+        SceneManager.activeSceneChanged += SceneChanged;
+        AssemblyReloadEvents.beforeAssemblyReload += Detach;
+        EditorApplication.quitting += Shutdown;
     }
-
-    private static async void InitializeAsync()
+    internal static void ApplySettings() { _nextUpdate = 0; Tick(); }
+    private static void Tick()
     {
-        await Task.Delay(InitializationDelay);
-        if (IsDiscordRunning())
-        {
-            InitializeDiscord();
-        }
-        else
-        {
-            Debug.Log("Discord is not running. Rich Presence will not be initialized.");
-        }
-    }
-
-    private static void InitializeDiscord()
-    {
-        try 
-        {
-            DisposeDiscord(); // Dispose of any existing Discord instance
-            _discord = new Discord.Discord(long.Parse(ApplicationId), (long)CreateFlags.Default);
-            SetStartTimestamp();
-            RegisterCallbacks();
-            UpdateActivity(true); // Force initial update
-            Debug.Log("Discord Rich Presence initialized successfully.");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Failed to initialize Discord: {e}");
-        }
-    }
-
-    private static void SetStartTimestamp()
-    {
-        _startTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-    }
-
-    private static void RegisterCallbacks()
-    {
-        EditorApplication.update += Update;
-        EditorSceneManager.activeSceneChangedInEditMode += OnActiveSceneChanged;
-    }
-
-    private static void Update()
-    {
-        if (_discord == null) return;
-
+        if (Application.isBatchMode || EditorApplication.timeSinceStartup < _nextUpdate) return;
+        _nextUpdate = EditorApplication.timeSinceStartup + 1;
         try
         {
-            _discord.RunCallbacks();
-
-            if (Time.realtimeSinceStartup - _lastUpdateTime >= UpdateInterval)
-            {
-                UpdateActivity();
-                _lastUpdateTime = Time.realtimeSinceStartup;
-            }
+            if (!PresenceSettings.Enabled || !PresenceSettings.ValidApplicationId) { Shutdown(); return; }
+            if (_client == null) _client = new BrokerClient();
+            var snapshot = PresenceSnapshot.Create(Application.productName, SceneManager.GetActiveScene().name, Application.unityVersion,
+                EditorApplication.isPlayingOrWillChangePlaymode, _sessionStart, PresenceSettings.ShowProject, PresenceSettings.ShowScene);
+            _client.Tick(EditorApplication.timeSinceStartup, snapshot, PresenceSettings.ApplicationId);
+            _error = null;
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            Debug.LogError($"Error in Update: {e}");
-            DisposeDiscord(); // Dispose of the Discord instance if an error occurs
-            InitializeDiscord(); // Attempt to reinitialize
+            if (_error != exception.Message) Debug.LogWarning("VRM Discord RPC: " + exception.Message);
+            _error = exception.Message; _nextUpdate += 9;
         }
     }
-
-    private static void OnPlayModeStateChanged(PlayModeStateChange state)
+    public static void UpdateActivity(bool forceUpdate = false) => _nextUpdate = 0;
+    private static void SceneChanged(Scene previous, Scene current) => UpdateActivity();
+    private static void PlayModeChanged(PlayModeStateChange state) => UpdateActivity();
+    private static void Shutdown()
     {
-        switch (state)
-        {
-            case PlayModeStateChange.EnteredEditMode:
-            case PlayModeStateChange.EnteredPlayMode:
-                EditorApplication.delayCall += () => {
-                    InitializeDiscord();
-                    UpdateActivity(true);
-                };
-                break;
-            case PlayModeStateChange.ExitingEditMode:
-            case PlayModeStateChange.ExitingPlayMode:
-                DisposeDiscord();
-                break;
-        }
+        try { if (_client != null) _client.Stop(); else BrokerClient.StopExisting(); }
+        catch (System.IO.IOException) { /* Parent monitoring still stops the helper on exit. */ }
+        _client = null;
     }
-
-    private static void OnActiveSceneChanged(UnityEngine.SceneManagement.Scene prevScene, UnityEngine.SceneManagement.Scene newScene)
+    private static void Detach()
     {
-        UpdateActivity(true); // Force update on scene change
-    }
-
-    public static void UpdateActivity(bool forceUpdate = false)
-    {
-        if (_discord == null)
-        {
-            Debug.LogWarning("Discord is null. Attempting to reinitialize.");
-            InitializeDiscord();
-            return;
-        }
-
-        _currentSceneName = EditorSceneManager.GetActiveScene().name;
-        _isPlayMode = EditorApplication.isPlaying;
-
-        // Check if anything has changed
-        if (!forceUpdate &&
-            _currentSceneName == _cachedSceneName &&
-            _isPlayMode == _cachedPlayMode &&
-            Application.productName == _cachedProductName)
-        {
-            return; // No changes, skip update
-        }
-
-        // Update cache
-        _cachedSceneName = _currentSceneName;
-        _cachedPlayMode = _isPlayMode;
-        _cachedProductName = Application.productName;
-
-        var activity = CreateActivity();
-        try
-        {
-            _discord.GetActivityManager().UpdateActivity(activity, OnActivityUpdated);
-            Debug.Log($"Updating activity. Scene: {_currentSceneName}, Play Mode: {_isPlayMode}");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error updating Discord activity: {e}");
-            // Attempt to reinitialize Discord on error
-            InitializeDiscord();
-        }
-    }
-
-    private static Activity CreateActivity()
-    {
-        return new Activity
-        {
-            State = $"{_currentSceneName} scene",
-            Details = Application.productName,
-            Timestamps = { Start = _startTimestamp },
-            Assets = {
-                LargeImage = "logo",
-                LargeText = $"Unity {Application.unityVersion}",
-                SmallImage = _isPlayMode ? "play-mode" : "edit-mode",
-                SmallText = _isPlayMode ? "Play mode" : "Edit mode",
-            },
-        };
-    }
-
-    private static void OnActivityUpdated(Result result)
-    {
-        if (result == Result.Ok)
-        {
-            Debug.Log("Discord activity updated successfully.");
-        }
-        else
-        {
-            Debug.LogWarning($"Failed to update Discord activity: {result}");
-            if (result == Result.TransactionAborted)
-            {
-                Debug.Log("Transaction aborted. This might be due to rate limiting or Discord client issues. Retrying in 30 seconds...");
-                EditorApplication.delayCall += () => {
-                    Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(_ => UpdateActivity(true));
-                };
-            }
-        }
-    }
-
-    private static bool IsDiscordRunning()
-    {
-        string[] discordProcessNames = { "Discord", "DiscordPTB", "DiscordCanary" };
-        foreach (var processName in discordProcessNames)
-        {
-            if (Process.GetProcessesByName(processName).Length > 0)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static void DisposeDiscord()
-    {
-        if (_discord != null)
-        {
-            try
-            {
-                _discord.Dispose();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Error disposing Discord: {e}");
-            }
-            finally
-            {
-                _discord = null;
-            }
-        }
-    }
-
-    private static async void CheckDiscordStatus()
-    {
-        while (true)
-        {
-            await Task.Delay(TimeSpan.FromMinutes(5));
-            if (!IsDiscordRunning() && _discord != null)
-            {
-                Debug.Log("Discord client not detected. Reinitializing...");
-                InitializeDiscord();
-            }
-        }
+        EditorApplication.update -= Tick;
+        EditorApplication.playModeStateChanged -= PlayModeChanged;
+        EditorSceneManager.activeSceneChangedInEditMode -= SceneChanged;
+        SceneManager.activeSceneChanged -= SceneChanged;
+        AssemblyReloadEvents.beforeAssemblyReload -= Detach;
+        EditorApplication.quitting -= Shutdown;
+        // Deliberately leave the helper and its Discord connection running.
     }
 }
-#endif
