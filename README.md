@@ -42,7 +42,7 @@ dotnet build tools/Broker/Broker.csproj -c Release -p:BrokerTest=true -o Logs/Br
 python -m unittest discover -s tools -p 'test_*.py' -v
 ```
 
-Set `MONO` to Unity's `Editor/Data/MonoBleedingEdge/bin/mono.exe` on Windows, or install Mono for command-line tests. The recording helper is a separate test build; it cannot broadcast to a Discord account. CI compares the production executable against a fresh deterministic build.
+Set `MONO` to Unity's `Editor/Data/MonoBleedingEdge/bin/mono.exe` on Windows, or install Mono for command-line tests. Without `MONO`, Windows command-line tests use its .NET Framework runtime. The recording helper is a separate test build; it cannot broadcast to a Discord account. Windows CI compares the production executable against a fresh deterministic build; Linux CI builds and runs lifecycle tests independently because compiler output bytes differ between operating systems.
 
 Open this project in Unity 2022.3.22f1 and run the Edit Mode tests after building the recording helper. Tests cover the send scheduler, reconnect handling, Unicode limits, privacy, actual Play Mode transitions, script reload, unchanged helper identity, competing launches, parent crashes, and helper recovery. For batch execution, use absolute paths for `-testResults` and `-logFile`.
 

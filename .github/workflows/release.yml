@@ -9,7 +9,7 @@ concurrency:
 jobs:
   release:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: write
     steps:
@@ -20,13 +20,16 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '10.0.401'
-      - run: sudo apt-get update && sudo apt-get install -y mono-devel
       - run: dotnet build tools/Broker/Broker.csproj -c Release -o Logs/Broker
-      - run: cmp Logs/Broker/VrmPresence.exe Packages/dev.varkaria.discordrpc/Editor/Broker~/VrmPresence.exe
+      - name: Verify shipped helper matches source
+        shell: pwsh
+        run: |
+          if ((Get-FileHash Logs/Broker/VrmPresence.exe).Hash -ne (Get-FileHash Packages/dev.varkaria.discordrpc/Editor/Broker~/VrmPresence.exe).Hash) { throw 'Shipped helper does not match source' }
       - run: dotnet build tools/Broker/Broker.csproj -c Release -p:BrokerTest=true -o Logs/BrokerTest
       - run: python -m unittest discover -s tools -p 'test_*.py' -v
       - run: python tools/package.py Packages/dev.varkaria.discordrpc
       - name: Publish immutable release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

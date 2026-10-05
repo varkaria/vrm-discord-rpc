@@ -9,7 +9,7 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-MONO = os.environ.get("MONO", "mono")
+RUNTIME = [os.environ["MONO"]] if os.environ.get("MONO") else ([] if os.name == "nt" else ["mono"])
 EXE = ROOT / "Logs/BrokerTest/VrmPresence.exe"
 
 
@@ -24,13 +24,13 @@ def wait_for(predicate, timeout=8):
 
 class BrokerTests(unittest.TestCase):
     def test_real_sdk_handshake_and_graceful_activity_removal(self):
-        subprocess.run([MONO, str(EXE), "--transport-test"], check=True, timeout=12)
+        subprocess.run(RUNTIME + [str(EXE), "--transport-test"], check=True, timeout=12)
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="presence test ")
         self.directory = Path(self.temp.name)
         self.parent = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
-        self.identity = int(subprocess.check_output([MONO, str(EXE), "--identity", str(self.parent.pid)], encoding="utf-8-sig"))
+        self.identity = int(subprocess.check_output(RUNTIME + [str(EXE), "--identity", str(self.parent.pid)], encoding="utf-8-sig"))
         self.children = []
         self.request = dict(Protocol=1, ParentPid=self.parent.pid, ParentStarted=self.identity,
                             Enabled=True, ApplicationId="1283700247440134174",
@@ -44,7 +44,7 @@ class BrokerTests(unittest.TestCase):
         os.replace(temp, self.directory / "request.json")
 
     def spawn(self):
-        child = subprocess.Popen([MONO, str(EXE), str(self.directory), str(self.parent.pid), str(self.identity)])
+        child = subprocess.Popen(RUNTIME + [str(EXE), str(self.directory), str(self.parent.pid), str(self.identity)])
         self.children.append(child)
         return child
 
