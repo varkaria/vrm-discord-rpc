@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '10.0.401'
-      - run: sudo apt-get update && sudo apt-get install -y mono-runtime
+      - run: sudo apt-get update && sudo apt-get install -y mono-devel
       - run: dotnet build tools/Broker/Broker.csproj -c Release -o Logs/Broker
       - name: Verify shipped helper matches source
         run: cmp Logs/Broker/VrmPresence.exe Packages/dev.varkaria.discordrpc/Editor/Broker~/VrmPresence.exe

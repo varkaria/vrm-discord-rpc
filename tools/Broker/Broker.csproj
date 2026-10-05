@@ -5,6 +5,7 @@
     <AssemblyName>VrmPresence</AssemblyName>
     <LangVersion>9</LangVersion>
     <Deterministic>true</Deterministic>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <DebugType>none</DebugType>
     <PathMap>$(MSBuildProjectDirectory)/../../=/_/</PathMap>
     <DefineConstants Condition="'$(BrokerTest)' == 'true'">BROKER_TEST</DefineConstants>
